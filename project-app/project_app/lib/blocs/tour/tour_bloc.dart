@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
-import 'package:equatable/equatable.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -24,8 +24,10 @@ part 'tour_state.dart';
 class TourBloc extends Bloc<TourEvent, TourState> {
   /// Servicio utilizado para optimizar rutas entre puntos de interés (POIs).
   final OptimizationService optimizationService;
+
   /// Bloc utilizado para gestionar los marcadores y rutas en el mapa.
-  final MapBloc mapBloc; 
+  final MapBloc mapBloc;
+  
   /// Repositorio utilizado para la carga y guardado de tours.
   final EcoCityTourRepository ecoCityTourRepository; 
 
@@ -46,7 +48,8 @@ class TourBloc extends Bloc<TourEvent, TourState> {
     // Reset de Tour. Emite estado con EcoCityTour y POI's a null.
     on<ResetTourEvent>((event, emit) {
       emit(state.copyWith(ecoCityTour: null, isJoined: false));
-      mapBloc.add(const OnClearMapEvent()); // Limpia el mapa al resetear el tour
+     mapBloc
+          .add(const OnClearMapEvent()); // Limpia el mapa al resetear el tour
     });
     on<LoadSavedToursEvent>(_onLoadSavedTours);
     on<LoadTourFromSavedEvent>(_onLoadTourFromSaved);
@@ -188,6 +191,12 @@ class TourBloc extends Bloc<TourEvent, TourState> {
       final updatedPois = List<PointOfInterest>.from(ecoCityTour.pois)
         ..remove(event.poi);
 
+        // Comprobamos si el POI eliminado es la ubicación actual
+      if (event.poi.name == 'current_location'.tr()) {
+        log.i(
+            'El POI eliminado es la ubicación actual. Cambiando isJoined a false.');
+        emit(state.copyWith(isJoined: false));
+      }
       // Actualizamos el tour y recalculamos la ruta con los POIs restantes
       await _updateTourWithPois(updatedPois, emit);
 
@@ -256,29 +265,32 @@ class TourBloc extends Bloc<TourEvent, TourState> {
   }
 
   /// Maneja la lógica para cargar un tour guardado específico desde el repositorio.
-  Future<void> _onLoadTourFromSaved(LoadTourFromSavedEvent event, Emitter<TourState> emit) async {
-  emit(state.copyWith(isLoading: true, hasError: false));
+  Future<void> _onLoadTourFromSaved(
+      LoadTourFromSavedEvent event, Emitter<TourState> emit) async {
+    emit(state.copyWith(isLoading: true, hasError: false));
 
-  try {
-    // Cargar el tour desde Firestore utilizando el documentId
-    final savedTour = await ecoCityTourRepository.getTourById(event.documentId);
+    try {
+      // Cargar el tour desde Firestore utilizando el documentId
+      final savedTour =
+          await ecoCityTourRepository.getTourById(event.documentId);
 
-    if (savedTour != null) {
-      // Emitir el nuevo estado con el tour cargado
-      emit(state.copyWith(ecoCityTour: savedTour, isLoading: false));
-      log.i('Tour cargado correctamente desde Firestore: ${savedTour.city}');
-      
-      // Mandar a pintar la ruta y los POIs en el mapa
-      await mapBloc.drawEcoCityTour(savedTour);
-    } else {
-      log.w('El tour no existe o es nulo.');
+      if (savedTour != null) {
+        // Emitir el nuevo estado con el tour cargado
+        emit(state.copyWith(ecoCityTour: savedTour, isLoading: false));
+        log.i('Tour cargado correctamente desde Firestore: ${savedTour.city}');
+
+        // Mandar a pintar la ruta y los POIs en el mapa
+        await mapBloc.drawEcoCityTour(savedTour);
+      } else {
+        log.w('El tour no existe o es nulo.');
+        emit(state.copyWith(isLoading: false, hasError: true));
+      }
+    } catch (e) {
+      log.e('Error al cargar el tour desde Firestore: $e');
       emit(state.copyWith(isLoading: false, hasError: true));
     }
-  } catch (e) {
-    log.e('Error al cargar el tour desde Firestore: $e');
-    emit(state.copyWith(isLoading: false, hasError: true));
+ 
   }
 }
 
 
-}
