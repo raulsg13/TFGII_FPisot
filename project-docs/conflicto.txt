@@ -1,1 +1,9 @@
+<<<<<<< HEAD
 Cambios hechos por Raúl
+=======
+<<<<<<< HEAD
+Cambios hechos por Igor
+=======
+Cambios hechos por Raúl
+>>>>>>> 3b55fb7e07731a29e4338a3640d36753b8561adf
+>>>>>>> faf5bbecbbf49bf75a9925e9c70c12c3456d8b7b
